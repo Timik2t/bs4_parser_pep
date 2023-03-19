@@ -4,9 +4,17 @@
 
 Парсер информации о python с **<https://docs.python.org/3/>** и **<https://peps.python.org/>**
 
-### Перед использованием
+## Технологии
 
-Клонируйте репозиторий к себе на компьютер при помощи команд:
+beautifulsoup4
+
+prettytable
+
+requests-cache
+
+## Подготовка и запуск проекта
+
+### Склонировать репозиторий на локальную машину:
 
 ```
 git clone git@github.com:Timik2t/bs4_parser_pep.git
