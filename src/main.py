@@ -7,7 +7,8 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
-from constants import BASE_DIR, EXPECTED_STATUS, MAIN_DOC_URL, PEP_URL
+from constants import (BASE_DIR, EXPECTED_STATUS, MAIN_DOC_URL, PEP_LOG,
+                       PEP_URL)
 from outputs import control_output
 from utils import find_tag, get_response
 
@@ -20,7 +21,10 @@ def whats_new(session):
     soup = BeautifulSoup(response.text, features='lxml')
     main_div = find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'})
     div_with_ul = find_tag(main_div, 'div', attrs={'class': 'toctree-wrapper'})
-    sections_by_python = div_with_ul.find_all('li', attrs={'class': 'toctree-l1'})
+    sections_by_python = div_with_ul.find_all(
+        'li',
+        attrs={'class': 'toctree-l1'}
+        )
     results = [('Ссылка на статью', 'Заголовок', 'Редактор, автор')]
     for section in tqdm(sections_by_python):
         version_a_tag = find_tag(section, 'a')
@@ -71,7 +75,11 @@ def download(session):
     soup = BeautifulSoup(response.text, 'lxml')
     main_tag = find_tag(soup, 'div', {'role': 'main'})
     table_tag = find_tag(main_tag, 'table', {'class': 'docutils'})
-    pdf_a4_tag = find_tag(table_tag, 'a', {'href': re.compile(r'.+pdf-a4\.zip$')})
+    pdf_a4_tag = find_tag(
+        table_tag,
+        'a',
+        {'href': re.compile(r'.+pdf-a4\.zip$')}
+        )
     pdf_a4_link = pdf_a4_tag['href']
     archive_url = urljoin(downloads_url, pdf_a4_link)
     filename = archive_url.split('/')[-1]
@@ -88,39 +96,59 @@ def pep(session):
     response = get_response(session, PEP_URL)
     soup = BeautifulSoup(response.text, 'lxml')
     main_tag = find_tag(soup, 'section', {'id': 'numerical-index'})
-    peps_row = main_tag.find_all('tr')
+    pep_rows = main_tag.find_all('tr')
     count_status_in_card = {}
     result = [('Статус', 'Количество')]
-    for i in range(1, len(peps_row)):
-        pep_href_tag = peps_row[i].a['href']
-        pep_link = urljoin(PEP_URL, pep_href_tag)
-        response = get_response(session, pep_link)
-        soup = BeautifulSoup(response.text, 'lxml')
-        main_card_tag = find_tag(soup, 'section', {'id': 'pep-content'})
-        main_card_dl_tag = find_tag(main_card_tag, 'dl',
-                                    {'class': 'rfc2822 field-list simple'})
-        for tag in main_card_dl_tag:
-            if tag.name == 'dt' and tag.text == 'Status:':
-                card_status = tag.next_sibling.next_sibling.string
-                if card_status in count_status_in_card:
-                    count_status_in_card[card_status] += 1
-                else:
-                    count_status_in_card[card_status] = 1
-                if len(peps_row[i].td.text) != 1:
-                    table_status = peps_row[i].td.text[1:]
-                    if card_status[0] != table_status:
-                        logging.info(
-                            '\n'
-                            'Несовпадающие статусы:\n'
-                            f'{pep_link}\n'
-                            f'Статус в карточке: {card_status}\n'
-                            f'Ожидаемые статусы: '
-                            f'{EXPECTED_STATUS[table_status]}\n'
-                                )
-    for key in count_status_in_card:
-        result.append((key, str(count_status_in_card[key])))
-    result.append(('Total', len(peps_row)-1))
+
+    [process_pep_status(
+        session,
+        pep_row,
+        count_status_in_card
+        ) for pep_row in tqdm(pep_rows[1:], desc='Парсинг PEP')]
+
+    result += [
+        (key, str(count_status_in_card[key]))
+        for key in count_status_in_card
+    ]
+    result.append(('Total', str(len(pep_rows) - 1)))
+
     return result
+
+
+def process_pep_status(session, pep_row, count_status_in_card):
+    pep_href = pep_row.a['href']
+    pep_link = urljoin(PEP_URL, pep_href)
+    response = get_response(session, pep_link)
+    soup = BeautifulSoup(response.text, 'lxml')
+    main_card_tag = find_tag(
+        soup,
+        'section',
+        {'id': 'pep-content'}
+    )
+    main_card_dl_tag = find_tag(
+        main_card_tag,
+        'dl',
+        {'class': 'rfc2822 field-list simple'}
+    )
+
+    for tag in main_card_dl_tag:
+        if tag.name == 'dt' and tag.text == 'Status:':
+            card_status = tag.next_sibling.next_sibling.string
+            if card_status in count_status_in_card:
+                count_status_in_card[card_status] += 1
+            else:
+                count_status_in_card[card_status] = 1
+
+            if len(pep_row.td.text) != 1:
+                table_status = pep_row.td.text[1:]
+                if card_status[0] != table_status:
+                    logging.info(
+                        PEP_LOG.format(
+                            link=pep_link,
+                            card_status=card_status,
+                            expected_statuses=EXPECTED_STATUS[table_status]
+                        )
+                    )
 
 
 MODE_TO_FUNCTION = {
