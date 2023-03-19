@@ -2,7 +2,7 @@
 
 ## Описание
 
-Парсер информации о python с **<https://docs.python.org/3/>** и **<https://peps.python.org/>**
+Парсер информации из **<https://docs.python.org/3/>** и **<https://peps.python.org/>**
 
 ## Технологии
 
