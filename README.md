@@ -6,6 +6,8 @@
 
 ## Технологии
 
+Python
+
 beautifulsoup4
 
 prettytable
@@ -14,7 +16,7 @@ requests-cache
 
 ## Подготовка и запуск проекта
 
-### Склонировать репозиторий на локальную машину:
+### Склонировать репозиторий на локальную машину
 
 ```
 git clone git@github.com:Timik2t/bs4_parser_pep.git
@@ -25,7 +27,9 @@ git clone git@github.com:Timik2t/bs4_parser_pep.git
 ```
 python -m venv venv
 ```
+
 и
+
 ```
 pip install -r requirements.txt
 ```
@@ -98,3 +102,11 @@ file - сохраняет информацию в формате csv в папк
 ```
 python main.py [вариант парсера] -o file
 ```
+
+>При выводе информации в файл (-o file) он сохраняется в папке src/results/
+>Скачанная документация Python сохраняется в папке src/downloads/
+>Логи работы парсера расположены в папке src/logs/
+
+### Автор
+
+[Исхаков Тимур](https://github.com/Timik2t "GitHub аккаунт")
