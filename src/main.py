@@ -5,7 +5,6 @@ from urllib.parse import urljoin
 
 import requests_cache
 from bs4 import BeautifulSoup
-from requests.exceptions import RequestException
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
@@ -13,49 +12,40 @@ from constants import (BASE_DIR, DOWNLOADS_URL, EXPECTED_STATUS, MAIN_DOC_URL,
                        PEP_LOG, PEP_URL, WHATS_NEW_URL)
 from exceptions import DownloadLinkNotFound, VersionsNotFound
 from outputs import control_output
-from utils import find_tag, get_response
+from utils import find_tag, get_response, get_soup
 
-REQUEST_ERROR = "Не удалось получить ответ по адресу: {}"
 VERSION_NOT_FOUND = 'Не найден список c версиями Python'
 DOWNLOAD_LINK_NOT_FOUND = 'Не найдена ссылка на архив с документацией'
 ARCHIVE_SAVED_MESSAGE = 'Архив был загружен и сохранён: {}'
 PARSER_STARTED = 'Парсер запущен!'
 CMD_ARGS = 'Аргументы командной строки: {}'
 PARSER_ENDED = 'Парсер завершил работу.'
-
-
-def get_soup(session, url):
-    response = session.get(url)
-    if not response:
-        return None
-    soup = BeautifulSoup(response.text, features='lxml')
-    return soup if soup.text else None
+SOUP_ERROR = 'Ошибка создания soup по адресу: {}'
+ERROR = 'Ошибка: {}'
 
 
 def whats_new(session):
-    soup = get_soup(session, WHATS_NEW_URL)
-    sections_by_python = soup.select(
-        '#what-s-new-in-python div.toctree-wrapper li.toctree-l1')
     results = []
-    for section in tqdm(sections_by_python):
-        version_a_tag = find_tag(section, 'a')
-        href = version_a_tag['href']
-        version_link = urljoin(WHATS_NEW_URL, href)
-        response = session.get(version_link)
-        if response is None:
-            logging.warning(REQUEST_ERROR.format(version_link))
-            continue
+    logs = []
+    for python_version in tqdm(
+            get_soup(session, WHATS_NEW_URL).select(
+                '#what-s-new-in-python div.toctree-wrapper li.toctree-l1 a')):
+        version_link = urljoin(WHATS_NEW_URL, python_version['href'])
         soup = get_soup(session, version_link)
+        if soup is None:
+            logs.append(SOUP_ERROR.format(version_link))
+            continue
         results.append((version_link, find_tag(soup, 'h1').text,
                         find_tag(soup, 'dl').text.replace('\n', ' ')))
+    if len(logs) > 0:
+        logging.warning("\n".join(logs))
     return [('Ссылка на статью', 'Заголовок', 'Редактор, Автор'), *results]
 
 
 def latest_versions(session):
-    soup = get_soup(session, MAIN_DOC_URL)
-    sidebar = find_tag(soup, 'div', {'class': 'sphinxsidebarwrapper'})
-    ul_tags = sidebar.find_all('ul')
-    for ul in ul_tags:
+    for ul in find_tag(get_soup(session, MAIN_DOC_URL), 'div', {
+            'class': 'sphinxsidebarwrapper'
+    }).find_all('ul'):
         if 'All versions' in ul.text:
             a_tags = ul.find_all('a')
             break
@@ -92,49 +82,41 @@ def download(session):
 
 
 def pep(session):
-    soup = get_soup(session, PEP_URL)
-    main_tag = find_tag(soup, 'section', {'id': 'numerical-index'})
-    pep_rows = main_tag.find_all('tr')
-    count_status_in_card = defaultdict(int)
 
-    def process_pep_status(pep_row, count_status_in_card):
-        pep_href = pep_row.a['href']
-        pep_link = urljoin(PEP_URL, pep_href)
+    def process_pep_status(pep_row):
+        pep_link = urljoin(PEP_URL, pep_row.a['href'])
         response = get_response(session, pep_link)
         soup = BeautifulSoup(response.text, 'lxml')
-        main_card_tag = find_tag(soup, 'section', {'id': 'pep-content'})
+        if soup is None:
+            logs.append(SOUP_ERROR.format(response))
         main_card_dl_tag = find_tag(
-            main_card_tag, 'dl', {'class': 'rfc2822 field-list simple'})
-
+            find_tag(soup, 'section', {'id': 'pep-content'}), 'dl',
+            {'class': 'rfc2822 field-list simple'})
         for tag in main_card_dl_tag:
             if tag.name != 'dt' or tag.text != 'Status:':
                 continue
             card_status = tag.next_sibling.next_sibling.string
-            if card_status in count_status_in_card:
-                count_status_in_card[card_status] += 1
-            else:
-                count_status_in_card[card_status] = 1
-
+            count_status_in_card[card_status] += 1
             if len(pep_row.td.text) != 1:
                 table_status = pep_row.td.text[1:]
                 if card_status[0] != table_status:
-                    logging.info(
+                    logs.append(
                         PEP_LOG.format(
                             link=pep_link,
                             card_status=card_status,
-                            expected_statuses=EXPECTED_STATUS[table_status]
-                        )
-                    )
+                            expected_statuses=EXPECTED_STATUS[table_status]))
 
+    logs = []
+    pep_rows = find_tag(get_soup(session, PEP_URL), 'section', {
+        'id': 'numerical-index'
+    }).find_all('tr')
+    count_status_in_card = defaultdict(int)
     for pep_row in tqdm(pep_rows[1:], desc='Парсинг PEP'):
-        process_pep_status(pep_row, count_status_in_card)
-
-    return [
-        ('Статус', 'Количество'),
-        *[(key, str(count_status_in_card[key]))
-          for key in count_status_in_card],
-        ('Всего', str(len(pep_rows) - 1))
-    ]
+        process_pep_status(pep_row)
+    if logs:
+        [logging.info(log) for log in logs]
+    return [('Статус', 'Количество'), *count_status_in_card.items(),
+            ('Всего', sum(count_status_in_card.values()))]
 
 
 MODE_TO_FUNCTION = {
@@ -160,8 +142,8 @@ def main():
         if results is not None:
             control_output(results, args)
         logging.info(PARSER_ENDED)
-    except (RequestException, ValueError) as error:
-        logging.exception(f'Ошибка: {error}')
+    except Exception as error:
+        logging.exception(ERROR.format(error))
 
 
 if __name__ == '__main__':

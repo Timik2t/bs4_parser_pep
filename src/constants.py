@@ -10,7 +10,7 @@ DOWNLOADS_URL = urljoin(MAIN_DOC_URL, 'download.html')
 # File and directory names
 BASE_DIR = Path(__file__).parent
 DOWNLOADS_DIR = BASE_DIR / 'downloads'
-RESULTS_DIR = BASE_DIR / 'results'
+RESULTS_DIR = 'results'
 LOG_DIR = BASE_DIR / 'logs'
 LOG_FILE = LOG_DIR / 'parser.log'
 LOG_FILENAME = 'logs.log'
