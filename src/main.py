@@ -29,7 +29,8 @@ def whats_new(session):
     logs = []
     for python_version in tqdm(
             get_soup(session, WHATS_NEW_URL).select(
-                '#what-s-new-in-python div.toctree-wrapper li.toctree-l1 a')):
+                '#what-s-new-in-python div.toctree-wrapper li.toctree-l1 > a')
+    ):
         version_link = urljoin(WHATS_NEW_URL, python_version['href'])
         soup = get_soup(session, version_link)
         if soup is None:
