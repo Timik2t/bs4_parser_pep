@@ -37,10 +37,7 @@ LOG_FORMAT = '"%(asctime)s - [%(levelname)s] - %(message)s"'
 LOG_MAX_BYTES = 10 ** 6
 LOG_BACKUP_COUNT = 5
 
-# Other constants
-PEP_LOG = (
-    '\nНесовпадающие статусы:\n'
-    '{link}\n'
-    'Статус в карточке: {card_status}\n'
-    'Ожидаемые статусы: {expected_statuses}'
-)
+# Output functions
+PRETTY_TABLE_OUTPUT = 'pretty'
+FILE_OUTPUT = 'file'
+DEFAULT_OUTPUT = 'default'

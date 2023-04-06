@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
 from constants import (BASE_DIR, DOWNLOADS_DIR, DOWNLOADS_URL, EXPECTED_STATUS,
-                       MAIN_DOC_URL, PEP_LOG, PEP_URL, WHATS_NEW_URL)
+                       MAIN_DOC_URL, PEP_URL, WHATS_NEW_URL)
 from exceptions import DownloadLinkNotFound, VersionsNotFound
 from outputs import control_output
 from utils import find_tag, get_response, get_soup
@@ -21,6 +21,12 @@ PARSER_STARTED = 'Парсер запущен!'
 CMD_ARGS = 'Аргументы командной строки: {}'
 PARSER_ENDED = 'Парсер завершил работу.'
 ERROR = 'Ошибка: {}'
+PEP_LOG = (
+    '\nНесовпадающие статусы:\n'
+    '{link}\n'
+    'Статус в карточке: {card_status}\n'
+    'Ожидаемые статусы: {expected_statuses}'
+)
 
 
 def whats_new(session):
@@ -109,8 +115,7 @@ def pep(session):
     count_status_in_card = defaultdict(int)
     for pep_row in tqdm(pep_rows[1:], desc='Парсинг PEP'):
         process_pep_status(pep_row)
-    if logs:
-        [logging.info(log) for log in logs]
+    logging.info("\n".join(logs))
     return [('Статус', 'Количество'), *count_status_in_card.items(),
             ('Всего', sum(count_status_in_card.values()))]
 
