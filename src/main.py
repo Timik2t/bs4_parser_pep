@@ -8,8 +8,8 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
-from constants import (BASE_DIR, DOWNLOADS_URL, EXPECTED_STATUS, MAIN_DOC_URL,
-                       PEP_LOG, PEP_URL, WHATS_NEW_URL)
+from constants import (BASE_DIR, DOWNLOADS_DIR, DOWNLOADS_URL, EXPECTED_STATUS,
+                       MAIN_DOC_URL, PEP_LOG, PEP_URL, WHATS_NEW_URL)
 from exceptions import DownloadLinkNotFound, VersionsNotFound
 from outputs import control_output
 from utils import find_tag, get_response, get_soup
@@ -20,7 +20,6 @@ ARCHIVE_SAVED_MESSAGE = 'Архив был загружен и сохранён:
 PARSER_STARTED = 'Парсер запущен!'
 CMD_ARGS = 'Аргументы командной строки: {}'
 PARSER_ENDED = 'Парсер завершил работу.'
-SOUP_ERROR = 'Ошибка создания soup по адресу: {}'
 ERROR = 'Ошибка: {}'
 
 
@@ -28,24 +27,24 @@ def whats_new(session):
     results = []
     logs = []
     for python_version in tqdm(
-            get_soup(session, WHATS_NEW_URL).select(
-                '#what-s-new-in-python div.toctree-wrapper li.toctree-l1 > a')
+      get_soup(
+        session, WHATS_NEW_URL
+      ).select(
+        '#what-s-new-in-python div.toctree-wrapper li.toctree-l1 > a'
+      )
     ):
         version_link = urljoin(WHATS_NEW_URL, python_version['href'])
         soup = get_soup(session, version_link)
-        if soup is None:
-            logs.append(SOUP_ERROR.format(version_link))
-            continue
         results.append((version_link, find_tag(soup, 'h1').text,
                         find_tag(soup, 'dl').text.replace('\n', ' ')))
-    if len(logs) > 0:
-        logging.warning("\n".join(logs))
+    if logs:
+        logging.warning('\n'.join(logs))
     return [('Ссылка на статью', 'Заголовок', 'Редактор, Автор'), *results]
 
 
 def latest_versions(session):
     for ul in find_tag(get_soup(session, MAIN_DOC_URL), 'div', {
-            'class': 'sphinxsidebarwrapper'
+        'class': 'sphinxsidebarwrapper'
     }).find_all('ul'):
         if 'All versions' in ul.text:
             a_tags = ul.find_all('a')
@@ -65,15 +64,14 @@ def latest_versions(session):
 
 
 def download(session):
-    soup = get_soup(session, DOWNLOADS_URL)
-    pdf_a4_tag = soup.select_one(
+    pdf_a4_tag = get_soup(session, DOWNLOADS_URL).select_one(
         'div[role="main"] table.docutils a[href$="pdf-a4.zip"]')
     if not pdf_a4_tag:
         raise DownloadLinkNotFound(DOWNLOAD_LINK_NOT_FOUND)
     pdf_a4_link = pdf_a4_tag['href']
     archive_url = urljoin(DOWNLOADS_URL, pdf_a4_link)
     filename = archive_url.split('/')[-1]
-    downloads_dir = BASE_DIR / 'downloads'
+    downloads_dir = BASE_DIR / DOWNLOADS_DIR
     downloads_dir.mkdir(exist_ok=True)
     archive_path = downloads_dir / filename
     response = session.get(archive_url)
@@ -83,13 +81,11 @@ def download(session):
 
 
 def pep(session):
+    logs = []
 
     def process_pep_status(pep_row):
         pep_link = urljoin(PEP_URL, pep_row.a['href'])
-        response = get_response(session, pep_link)
-        soup = BeautifulSoup(response.text, 'lxml')
-        if soup is None:
-            logs.append(SOUP_ERROR.format(response))
+        soup = BeautifulSoup(get_response(session, pep_link).text, 'lxml')
         main_card_dl_tag = find_tag(
             find_tag(soup, 'section', {'id': 'pep-content'}), 'dl',
             {'class': 'rfc2822 field-list simple'})
@@ -107,7 +103,6 @@ def pep(session):
                             card_status=card_status,
                             expected_statuses=EXPECTED_STATUS[table_status]))
 
-    logs = []
     pep_rows = find_tag(get_soup(session, PEP_URL), 'section', {
         'id': 'numerical-index'
     }).find_all('tr')

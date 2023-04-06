@@ -1,9 +1,10 @@
 from bs4 import BeautifulSoup
 
-from exceptions import ParserFindTagException
+from exceptions import ParserFindTagException, SoupCreationError
 
 TAG_NOT_FOUND_ERROR = 'Не найден тег {tag} {attrs}'
 REQUEST_ERROR = 'Возникла ошибка при загрузке страницы {url}'
+SOUP_ERROR = 'Ошибка создания soup по адресу: {}'
 
 
 def get_response(session, url, encoding='utf-8'):
@@ -25,4 +26,8 @@ def find_tag(soup, tag, attrs=None):
 
 
 def get_soup(session, url):
-    return BeautifulSoup(session.get(url).text, features='lxml')
+    try:
+        response = session.get(url)
+        return BeautifulSoup(response.content, 'html.parser')
+    except SoupCreationError as error:
+        raise SoupCreationError(SOUP_ERROR.format(response)) from error
