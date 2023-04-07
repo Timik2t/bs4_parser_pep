@@ -40,4 +40,3 @@ LOG_BACKUP_COUNT = 5
 # Output functions
 PRETTY_TABLE_OUTPUT = 'pretty'
 FILE_OUTPUT = 'file'
-DEFAULT_OUTPUT = 'default'

@@ -4,15 +4,19 @@ from collections import defaultdict
 from urllib.parse import urljoin
 
 import requests_cache
-from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
-from constants import (BASE_DIR, DOWNLOADS_DIR, DOWNLOADS_URL, EXPECTED_STATUS,
-                       MAIN_DOC_URL, PEP_URL, WHATS_NEW_URL)
-from exceptions import DownloadLinkNotFound, VersionsNotFound
+from constants import (
+    BASE_DIR, DOWNLOADS_DIR, DOWNLOADS_URL, EXPECTED_STATUS,
+    MAIN_DOC_URL, PEP_URL, WHATS_NEW_URL
+)
+from exceptions import (
+    DownloadLinkNotFound, SoupCreationError,
+    VersionsNotFound
+)
 from outputs import control_output
-from utils import find_tag, get_response, get_soup
+from utils import find_tag, get_soup
 
 VERSION_NOT_FOUND = 'Не найден список c версиями Python'
 DOWNLOAD_LINK_NOT_FOUND = 'Не найдена ссылка на архив с документацией'
@@ -27,20 +31,26 @@ PEP_LOG = (
     'Статус в карточке: {card_status}\n'
     'Ожидаемые статусы: {expected_statuses}'
 )
+SOUP_ERROR = 'Ошибка создания soup по адресу {url}: {error}'
 
 
 def whats_new(session):
     results = []
     logs = []
-    for python_version in tqdm(
-      get_soup(
-        session, WHATS_NEW_URL
-      ).select(
-        '#what-s-new-in-python div.toctree-wrapper li.toctree-l1 > a'
-      )
+    for anchor_tag in tqdm(
+        get_soup(
+            session, WHATS_NEW_URL
+        ).select(
+            '#what-s-new-in-python div.toctree-wrapper li.toctree-l1 > a'
+        )
     ):
-        version_link = urljoin(WHATS_NEW_URL, python_version['href'])
-        soup = get_soup(session, version_link)
+        version_link = urljoin(WHATS_NEW_URL, anchor_tag['href'])
+        try:
+            soup = get_soup(session, version_link)
+        except SoupCreationError as error:
+            raise SoupCreationError(
+                SOUP_ERROR.format(url=version_link, error=error)
+            )
         results.append((version_link, find_tag(soup, 'h1').text,
                         find_tag(soup, 'dl').text.replace('\n', ' ')))
     if logs:
@@ -88,10 +98,16 @@ def download(session):
 
 def pep(session):
     logs = []
+    count_status_in_cards = defaultdict(int)
 
     def process_pep_status(pep_row):
         pep_link = urljoin(PEP_URL, pep_row.a['href'])
-        soup = BeautifulSoup(get_response(session, pep_link).text, 'lxml')
+        try:
+            soup = get_soup(session, pep_link)
+        except SoupCreationError as error:
+            raise SoupCreationError(
+                SOUP_ERROR.format(url=pep_link, error=error)
+            )
         main_card_dl_tag = find_tag(
             find_tag(soup, 'section', {'id': 'pep-content'}), 'dl',
             {'class': 'rfc2822 field-list simple'})
@@ -99,25 +115,25 @@ def pep(session):
             if tag.name != 'dt' or tag.text != 'Status:':
                 continue
             card_status = tag.next_sibling.next_sibling.string
-            count_status_in_card[card_status] += 1
-            if len(pep_row.td.text) != 1:
-                table_status = pep_row.td.text[1:]
-                if card_status[0] != table_status:
-                    logs.append(
-                        PEP_LOG.format(
-                            link=pep_link,
-                            card_status=card_status,
-                            expected_statuses=EXPECTED_STATUS[table_status]))
+            count_status_in_cards[card_status] += 1
+            if len(pep_row.td.text) == 1:
+                continue
+            table_status = pep_row.td.text[1:]
+            if card_status[0] != table_status:
+                logs.append(PEP_LOG.format(
+                    link=pep_link,
+                    card_status=card_status,
+                    expected_statuses=EXPECTED_STATUS[table_status]
+                ))
 
     pep_rows = find_tag(get_soup(session, PEP_URL), 'section', {
         'id': 'numerical-index'
     }).find_all('tr')
-    count_status_in_card = defaultdict(int)
     for pep_row in tqdm(pep_rows[1:], desc='Парсинг PEP'):
         process_pep_status(pep_row)
     logging.info("\n".join(logs))
-    return [('Статус', 'Количество'), *count_status_in_card.items(),
-            ('Всего', sum(count_status_in_card.values()))]
+    return [('Статус', 'Количество'), *count_status_in_cards.items(),
+            ('Всего', sum(count_status_in_cards.values()))]
 
 
 MODE_TO_FUNCTION = {
