@@ -4,7 +4,6 @@ from collections import defaultdict
 from urllib.parse import urljoin
 
 import requests_cache
-from requests import RequestException
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
@@ -45,10 +44,10 @@ def whats_new(session):
         version_link = urljoin(WHATS_NEW_URL, anchor_tag['href'])
         try:
             soup = get_soup(session, version_link)
-        except RequestException as error:
+            results.append((version_link, find_tag(soup, 'h1').text,
+                            find_tag(soup, 'dl').text.replace('\n', ' ')))
+        except ConnectionError as error:
             logs.append(SOUP_ERROR.format(url=version_link, error=error))
-        results.append((version_link, find_tag(soup, 'h1').text,
-                        find_tag(soup, 'dl').text.replace('\n', ' ')))
     if logs:
         logging.warning('\n'.join(logs))
     return [('Ссылка на статью', 'Заголовок', 'Редактор, Автор'), *results]
@@ -56,7 +55,7 @@ def whats_new(session):
 
 def latest_versions(session):
     for ul in find_tag(get_soup(session, MAIN_DOC_URL),
-                       'div.sphinxsidebarwrapper').find_all('ul'):
+                       'div.sphinxsidebarwrapper ul'):
         if 'All versions' in ul.text:
             a_tags = ul.find_all('a')
             break
@@ -99,25 +98,25 @@ def pep(session):
         pep_link = urljoin(PEP_URL, pep_row.a['href'])
         try:
             soup = get_soup(session, pep_link)
-        except RequestException as error:
+            main_card_dl_tag = soup.select_one(
+                '#pep-content dl.rfc2822.field-list.simple'
+            )
+            for tag in main_card_dl_tag:
+                if tag.name != 'dt' or tag.text != 'Status:':
+                    continue
+                card_status = tag.next_sibling.next_sibling.string
+                count_status_in_cards[card_status] += 1
+                if len(pep_row.td.text) == 1:
+                    continue
+                table_status = pep_row.td.text[1:]
+                if card_status[0] != table_status:
+                    logs.append(PEP_LOG.format(
+                        link=pep_link,
+                        card_status=card_status,
+                        expected_statuses=EXPECTED_STATUS[table_status]
+                    ))
+        except ConnectionError as error:
             logs.append(SOUP_ERROR.format(url=pep_link, error=error))
-        main_card_dl_tag = soup.select_one(
-            '#pep-content dl.rfc2822.field-list.simple'
-        )
-        for tag in main_card_dl_tag:
-            if tag.name != 'dt' or tag.text != 'Status:':
-                continue
-            card_status = tag.next_sibling.next_sibling.string
-            count_status_in_cards[card_status] += 1
-            if len(pep_row.td.text) == 1:
-                continue
-            table_status = pep_row.td.text[1:]
-            if card_status[0] != table_status:
-                logs.append(PEP_LOG.format(
-                    link=pep_link,
-                    card_status=card_status,
-                    expected_statuses=EXPECTED_STATUS[table_status]
-                ))
 
     pep_rows = get_soup(session, PEP_URL).select('#numerical-index tr')
     for pep_row in tqdm(pep_rows[1:], desc='Парсинг PEP'):
