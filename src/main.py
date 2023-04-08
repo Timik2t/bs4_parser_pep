@@ -4,6 +4,7 @@ from collections import defaultdict
 from urllib.parse import urljoin
 
 import requests_cache
+from requests import RequestException
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
@@ -44,7 +45,7 @@ def whats_new(session):
         version_link = urljoin(WHATS_NEW_URL, anchor_tag['href'])
         try:
             soup = get_soup(session, version_link)
-        except AttributeError as error:
+        except RequestException as error:
             logs.append(SOUP_ERROR.format(url=version_link, error=error))
         results.append((version_link, find_tag(soup, 'h1').text,
                         find_tag(soup, 'dl').text.replace('\n', ' ')))
@@ -54,9 +55,8 @@ def whats_new(session):
 
 
 def latest_versions(session):
-    for ul in find_tag(get_soup(session, MAIN_DOC_URL), 'div', {
-        'class': 'sphinxsidebarwrapper'
-    }).find_all('ul'):
+    for ul in find_tag(get_soup(session, MAIN_DOC_URL),
+                       'div.sphinxsidebarwrapper').find_all('ul'):
         if 'All versions' in ul.text:
             a_tags = ul.find_all('a')
             break
@@ -99,10 +99,10 @@ def pep(session):
         pep_link = urljoin(PEP_URL, pep_row.a['href'])
         try:
             soup = get_soup(session, pep_link)
-        except AttributeError as error:
+        except RequestException as error:
             logs.append(SOUP_ERROR.format(url=pep_link, error=error))
         main_card_dl_tag = soup.select_one(
-            'section#pep-content dl.rfc2822.field-list.simple'
+            '#pep-content dl.rfc2822.field-list.simple'
         )
         for tag in main_card_dl_tag:
             if tag.name != 'dt' or tag.text != 'Status:':
@@ -119,7 +119,7 @@ def pep(session):
                     expected_statuses=EXPECTED_STATUS[table_status]
                 ))
 
-    pep_rows = get_soup(session, PEP_URL).select('section#numerical-index tr')
+    pep_rows = get_soup(session, PEP_URL).select('#numerical-index tr')
     for pep_row in tqdm(pep_rows[1:], desc='Парсинг PEP'):
         process_pep_status(pep_row)
     logging.info("\n".join(logs))
