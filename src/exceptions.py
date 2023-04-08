@@ -11,8 +11,3 @@ class VersionsNotFound(Exception):
 class DownloadLinkNotFound(Exception):
     """Парсер не может найти ссылку на архив с документацией"""
     pass
-
-
-class SoupCreationError(Exception):
-    """Ошибка в создании 'soup' """
-    pass

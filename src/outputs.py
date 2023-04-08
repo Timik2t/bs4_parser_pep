@@ -36,7 +36,7 @@ def file_output(results, cli_args, *args):
     with open(file_path, 'w', encoding='utf-8', newline='') as f:
         csv.writer(
             f, dialect=csv.excel
-            ).writerows(
+        ).writerows(
             results
         )
     logging.info(FILE_SAVE.format(file_path))
@@ -50,6 +50,4 @@ OUTPUT_FUNCTIONS = {
 
 
 def control_output(results, cli_args):
-    OUTPUT_FUNCTIONS.get(
-        cli_args.output
-        )(results, cli_args)
+    OUTPUT_FUNCTIONS.get(cli_args.output)(results, cli_args)
