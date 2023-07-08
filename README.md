@@ -16,13 +16,13 @@ requests-cache 1.0
 
 ## Подготовка и запуск проекта
 
-1. Склонировать репозиторий на локальную машину:
+1. Склонируйте репозиторий на локальную машину:
 
     ```bash
     git clone git@github.com:Timik2t/bs4_parser_pep.git
     ```
 
-2. Создать и активировать виртуальное окружение:
+2. Создайте и активируйте виртуальное окружение:
 
     ```bash
     python -m venv venv
@@ -37,7 +37,7 @@ requests-cache 1.0
     # Linux
     source venv/bin/activate
     ```
-3. Установить зависимости:
+3. Установите зависимости:
 
     ```bash
     pip install -r requirements.txt
