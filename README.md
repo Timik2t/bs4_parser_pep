@@ -6,75 +6,84 @@
 
 ## Технологии
 
-Python
+Python 3.9
 
-beautifulsoup4
+beautifulsoup4 4.9
 
-prettytable
+prettytable 2.1
 
-requests-cache
+requests-cache 1.0
 
 ## Подготовка и запуск проекта
 
-### Склонировать репозиторий на локальную машину
+1. Склонировать репозиторий на локальную машину:
 
-```
-git clone git@github.com:Timik2t/bs4_parser_pep.git
-```
+    ```bash
+    git clone git@github.com:Timik2t/bs4_parser_pep.git
+    ```
 
-В корневой папке проекта нужно создать виртуальное окружение и установить зависимости.
+2. Создать и активировать виртуальное окружение:
 
-```
-python -m venv venv
-```
+    ```bash
+    python -m venv venv
+    ```
 
-и
+    Активация окружения
+    ```bash
+    # Windows
+    source venv/Scripts/activate
+    ```
+    ```bash
+    # Linux
+    source venv/bin/activate
+    ```
+3. Установить зависимости:
 
-```
-pip install -r requirements.txt
-```
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-### смените директорию на папку src/
+5. Смените директорию на src/
 
-```
-cd src/
-```
+    ```bash
+    cd src/
+    ```
 
-### запустите файл main.py выбрав необходимый парсер и аргументы(приведены ниже)
+6. Запустите файл main.py выбрав необходимый парсер и аргументы(приведены ниже)
 
-```
-python main.py [вариант парсера] [аргументы]
-```
-
-### Встроенные парсеры
+    ```bash
+    python main.py [вариант парсера] [аргументы]
+    ```
+## Выбор парсера
+##№ Встроенные парсеры
 
 - whats-new
 Парсер выводящий спсок изменений в python.
 
-```
-python main.py whats-new
-```
+    ```bash
+    python main.py whats-new
+    ```
 
 - latest_versions
 Парсер выводящий список версий python и ссылки на их документацию.
 
-```
-python main.py latest-versions
-```
+    ```bash
+    python main.py latest-versions
+    ```
 
 - download
 Парсер скачивающий архив с документацией python в pdf формате.
 
-```
-python main.py download
-```
+    ```bash
+    python main.py download
+    ```
 
 - pep
 Парсер выводящий список статусов документов PEP, количество документов в каждом статусе и общее количество.
 
-```
-python main.py pep [аргументы]
-```
+    ```bash
+    python main.py pep [аргументы]
+    ```
 
 ### Аргументы
 
@@ -83,25 +92,25 @@ python main.py pep [аргументы]
 - -h, --help
 Общая информация о командах.
 
-```
-python main.py -h
-```
+    ```bash
+    python main.py -h
+    ```
 
 - -c, --clear-cache
 Очистка кеша перед выполнением парсинга.
 
-```
-python main.py [вариант парсера] -c
-```
+    ```bash
+    python main.py [вариант парсера] -c
+    ```
 
 - -o {pretty,file}, --output {pretty,file}
 Дополнительные способы вывода данных
 pretty - выводит данные в таблице
 file - сохраняет информацию в формате csv в папке results/
-
-```
-python main.py [вариант парсера] -o file
-```
+    
+    ```bash
+    python main.py [вариант парсера] -o file
+    ```
 
 - При выводе информации в файл (-o file) он сохраняется в папке src/results/
 - Скачанная документация Python сохраняется в папке src/downloads/
